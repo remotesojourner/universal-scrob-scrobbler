@@ -34,10 +34,47 @@ You can also install the extension manually by downloading the zip for your brow
 
 Extension will be enabled until you restart Firefox.
 
+### Loading the extension manually in Safari (macOS)
+
+Safari support is experimental. Build with `pnpm build-dev` to generate `build/safari`,
+or `pnpm build` to also generate `dist/safari.zip`. Safari 18.4 or later can load the
+folder or zip directly:
+
+1. Open Safari > Settings > Advanced and enable **Show features for web developers**.
+2. In Settings > Developer, click **Add Temporary Extension…** and approve the prompt.
+3. Select `build/safari` (or `dist/safari.zip`) and enable the extension.
+4. Connect to Scrob and grant access to your server. Enable the streaming services
+   you use in the extension settings and allow their website access in Safari.
+
+Temporary extensions expire after 24 hours or when Safari quits. Desktop notifications
+and Firefox's optional cookie-header workaround are not available in the Safari build.
+Keep a signed-in Netflix tab open while loading Netflix history in Safari; Netflix
+requests use that tab to access its first-party session cookies.
+Scrob connection, playback detection, and history sync need validation in Safari;
+successful packaging alone does not verify individual streaming services.
+
+To generate a macOS app wrapper with full Xcode installed:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+  xcrun safari-web-extension-converter build/safari \
+  --project-location build/safari-xcode \
+  --app-name 'Universal Scrob Scrobbler' \
+  --bundle-identifier com.universal-scrob-scrobbler.Universal-Scrob-Scrobbler \
+  --macos-only --swift --no-open --no-prompt
+```
+
+Open the generated Xcode project, configure signing, and run the app. The project
+references `build/safari`, so rebuild the extension before rebuilding the app.
+Unsigned local builds require **Allow unsigned extensions** in Safari's Developer
+settings; Safari resets that setting when it quits. Distribution requires appropriate
+Apple signing and packaging. See [Apple's installation guide](https://developer.apple.com/documentation/safariservices/running-your-safari-web-extension).
+
 ### Table of Contents
 
 - [Loading the extension manually in Chrome](#loading-the-extension-manually-in-chrome)
 - [Loading the extension manually in Firefox](#loading-the-extension-manually-in-firefox)
+- [Loading the extension manually in Safari](#loading-the-extension-manually-in-safari-macos)
 - [Table of Contents](#table-of-contents)
 - [What is Universal Scrob Scrobbler?](#what-is-universal-scrob-scrobbler)
 - [Why do I need this extension?](#why-do-i-need-this-extension)

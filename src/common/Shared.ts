@@ -26,15 +26,16 @@ export interface SharedValues {
 	finishInit: () => void;
 }
 
-export type BrowserPrefix = 'moz' | 'chrome' | 'unknown';
+export type BrowserPrefix = 'moz' | 'chrome' | 'safari' | 'unknown';
 
-export type BrowserName = 'firefox' | 'chrome' | 'unknown';
+export type BrowserName = 'firefox' | 'chrome' | 'safari' | 'unknown';
 
 export type PageType = 'content' | 'popup' | 'background';
 
 const browsers: Record<BrowserPrefix, BrowserName> = {
 	moz: 'firefox',
 	chrome: 'chrome',
+	safari: 'safari',
 	unknown: 'unknown',
 };
 const browserPrefix = browser

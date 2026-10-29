@@ -29,13 +29,8 @@ class _ScrobAuth extends ScrobApi {
 		const baseUrl = url.replace(/\/+$/, '');
 		const apiUrl = getScrobApiUrl(baseUrl);
 		try {
-			// 1. Verify instance reachability via registration-status endpoint
-			await this.requests.send({
-				url: `${apiUrl}/auth/registration-status`,
-				method: 'GET',
-			});
-
-			// 2. Verify API key validity by querying search with X-Api-Key header
+			// Check reachability and API key validity together. Anonymous auth routes
+			// may redirect to the web login even when API key authentication works.
 			await this.requests.send({
 				url: `${apiUrl}/media/search?q=test&type=movie`,
 				method: 'GET',

@@ -12,6 +12,7 @@ import { RequestsManager } from '@common/RequestsManager';
 import { ScriptInjector } from '@common/ScriptInjector';
 import { Shared } from '@common/Shared';
 import { Tabs } from '@common/Tabs';
+import '@services-apis';
 import '@images/uts-icon-128.png';
 import '@images/uts-icon-16.png';
 import '@images/uts-icon-19.png';

@@ -259,13 +259,18 @@ const getManifest = (browserName: string, isDev: boolean): string => {
 		default_locale: 'en',
 	};
 	switch (browserName) {
-		case 'chrome': {
+		case 'chrome':
+		case 'safari': {
+			const isSafari = browserName === 'safari';
 			manifest.manifest_version = 3;
-			manifest.background = {
-				service_worker: 'background.js',
-			};
-			manifest.optional_permissions = ['notifications'];
-			manifest.permissions = ['alarms', 'identity', 'scripting', 'storage', 'unlimitedStorage'];
+			manifest.background = isSafari
+				? { scripts: ['background.js'] }
+				: { service_worker: 'background.js' };
+			manifest.optional_permissions = isSafari ? [] : ['notifications'];
+			manifest.optional_host_permissions = ['http://*/*', 'https://*/*'];
+			manifest.permissions = isSafari
+				? ['alarms', 'scripting', 'storage', 'unlimitedStorage']
+				: ['alarms', 'identity', 'scripting', 'storage', 'unlimitedStorage'];
 			manifest.host_permissions = [
 				...Object.values(services)
 					.map((service) => service.hostPatterns)
@@ -279,7 +284,7 @@ const getManifest = (browserName: string, isDev: boolean): string => {
 				default_popup: 'popup.html',
 				default_title: isDev ? '[dev] Universal Scrob Scrobbler' : 'Universal Scrob Scrobbler',
 			};
-			if (process.env.CHROME_EXTENSION_KEY) {
+			if (!isSafari && process.env.CHROME_EXTENSION_KEY) {
 				manifest.key = process.env.CHROME_EXTENSION_KEY;
 			}
 			break;
@@ -331,7 +336,7 @@ const runFinalSteps = async (env: Environment) => {
 		await fs.copy(localesDir, outputLocalesDir);
 	}
 
-	const browsers = ['chrome', 'firefox'];
+	const browsers = ['chrome', 'firefox', 'safari'];
 	for (const browserName of browsers) {
 		const browserDir = path.resolve(BASE_PATH, 'build', browserName);
 		await fs.copy(path.resolve(BASE_PATH, 'build', 'output'), browserDir);

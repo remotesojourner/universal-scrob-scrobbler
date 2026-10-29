@@ -129,6 +129,10 @@ class _Requests {
 				throw responseText;
 			}
 		} catch (err) {
+			if (err instanceof RequestError) {
+				reject(err);
+				return;
+			}
 			// Handle manually thrown errors from above (where status >= 400)
 			if (typeof err === 'string' && responseStatus >= 400) {
 				reject(
@@ -235,11 +239,92 @@ class _Requests {
 		}
 		request.signal = RequestsManager.abortControllers.get(cancelKey)?.signal;
 
+		if (Shared.browser === 'safari' && new URL(request.url).origin === 'https://www.netflix.com') {
+			return this.fetchNetflixInTab(request, options, tabId);
+		}
+
 		return fetch(request.url, {
 			method: options.method,
 			headers: options.headers,
 			body: options.body,
 			signal: request.signal,
+		});
+	}
+
+	private async fetchNetflixInTab(
+		request: RequestDetails,
+		options: RequestOptions,
+		tabId: number | null
+	): Promise<Response> {
+		request.signal?.throwIfAborted();
+		const tabs = await browser.tabs.query({ url: 'https://www.netflix.com/*' });
+		const tab =
+			tabs.find((candidate) => candidate.id === tabId) ??
+			tabs.find((candidate) => candidate.active) ??
+			tabs[0];
+		if (tab?.id === undefined) {
+			throw new RequestError({
+				status: -1,
+				text: 'Open Netflix in Safari and select your profile before loading history.',
+			});
+		}
+
+		// Safari background requests do not share Netflix's first-party cookie context.
+		// Keep this bridge restricted to Netflix; never send Scrob credentials into a page.
+		const results = await browser.scripting.executeScript({
+			target: { tabId: tab.id },
+			// @ts-expect-error This is a newer value, so it's missing from the types.
+			world: 'MAIN',
+			func: async (
+				url: string,
+				init: { method: string; headers: Record<string, string>; body?: string }
+			) => {
+				if (
+					location.origin !== 'https://www.netflix.com' ||
+					new URL(url).origin !== location.origin
+				) {
+					throw new Error('Netflix tab navigated away before the request.');
+				}
+				const controller = new AbortController();
+				const timeout = setTimeout(() => controller.abort(), 30000);
+				try {
+					const response = await fetch(url, {
+						...init,
+						credentials: 'same-origin',
+						redirect: 'error',
+						signal: controller.signal,
+					});
+					return {
+						status: response.status,
+						text: await response.text(),
+						headers: Array.from(response.headers.entries()),
+					};
+				} finally {
+					clearTimeout(timeout);
+				}
+			},
+			args: [
+				request.url,
+				{
+					method: request.method,
+					headers: options.headers,
+					body: options.body as string | undefined,
+				},
+			],
+		});
+		request.signal?.throwIfAborted();
+		const result = results[0]?.result as
+			| { status: number; text: string; headers: [string, string][] }
+			| undefined;
+		if (!result) {
+			throw new RequestError({
+				status: -1,
+				text: 'Could not read Netflix in Safari. Check website access and your Netflix login.',
+			});
+		}
+		return new Response([204, 205, 304].includes(result.status) ? null : result.text, {
+			status: result.status,
+			headers: result.headers,
 		});
 	}
 

@@ -95,6 +95,9 @@ class _Notifications {
 	}
 
 	async show(title: string, message: string): Promise<void> {
+		if (!browser.notifications) {
+			return;
+		}
 		if (Shared.pageType === 'background') {
 			const hasPermissions = await browser.permissions.contains({ permissions: ['notifications'] });
 			if (hasPermissions) {

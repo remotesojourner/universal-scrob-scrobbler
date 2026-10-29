@@ -381,7 +381,7 @@ class _BrowserStorage {
 				id: 'showNotifications',
 				value: false,
 				permissions: ['notifications'],
-				doShow: true,
+				doShow: !!browser.notifications,
 			},
 			loadImages: {
 				type: 'switch',

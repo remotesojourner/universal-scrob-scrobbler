@@ -1,5 +1,6 @@
 import { ScrobApi } from '@apis/ScrobApi';
 import { Cache, CacheItem } from '@common/Cache';
+import { RequestError } from '@common/RequestError';
 import { Shared } from '@common/Shared';
 import { Utils } from '@common/Utils';
 import { ScrobbleItem } from '@models/Item';
@@ -26,6 +27,17 @@ export interface WatchEventCreate {
 }
 
 class _ScrobSync extends ScrobApi {
+	private isDuplicateWatch(error: unknown): boolean {
+		if (!(error instanceof RequestError) || error.status !== 409 || error.isCanceled) {
+			return false;
+		}
+		try {
+			return JSON.parse(error.text || '')?.detail?.error === 'duplicate_watch';
+		} catch {
+			return false;
+		}
+	}
+
 	async loadHistory(
 		item: ScrobbleItem,
 		scrobHistoryItemsCache: CacheItem<'scrobHistoryItems'>,
@@ -90,6 +102,7 @@ class _ScrobSync extends ScrobApi {
 
 	async sync(store: SyncStore, items: ScrobbleItem[], cancelKey = 'sync'): Promise<void> {
 		const newItems: ScrobbleItem[] = [];
+		let addedCount = 0;
 		try {
 			await this.activate();
 			const scrobHistoryItemsCache = await Cache.get('scrobHistoryItems');
@@ -117,12 +130,20 @@ class _ScrobSync extends ScrobApi {
 					payload.episode_number = item.scrob.number;
 				}
 
-				await this.requests.send({
-					url: `${this.API_URL}/history`,
-					method: 'POST',
-					body: payload,
-					cancelKey,
-				});
+				try {
+					await this.requests.send({
+						url: `${this.API_URL}/history`,
+						method: 'POST',
+						body: payload,
+						cancelKey,
+					});
+					addedCount++;
+				} catch (error) {
+					// Already recorded watches must not stop the remaining import.
+					if (!this.isDuplicateWatch(error)) {
+						throw error;
+					}
+				}
 
 				const newItem = item.clone();
 				await this.loadHistory(newItem, scrobHistoryItemsCache, true, cancelKey);
@@ -133,7 +154,7 @@ class _ScrobSync extends ScrobApi {
 			await Cache.set({ scrobHistoryItems: scrobHistoryItemsCache });
 			await store.update(newItems, true);
 			await Shared.events.dispatch('HISTORY_SYNC_SUCCESS', null, {
-				added: { count: newItems.length },
+				added: { count: addedCount },
 			});
 		} catch (err) {
 			if (Shared.errors.validate(err)) {
